@@ -10,6 +10,15 @@
   <!-- YouTube IFrame Player API -->
   <script src="https://www.youtube.com/iframe_api"></script>
 
+  <script>
+document.addEventListener("click", () => {
+  if (player && player.isMuted && player.isMuted()) {
+    player.unMute();
+  }
+}, { once: true });
+</script>
+
+
   <style>
     body {
       margin: 0;

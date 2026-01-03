@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Host Listener</title>
+<script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+<p>Aguardando criação de festa…</p>
+
+<script>
+const socket = io();
+
+// 🔥 escuta criação de QUALQUER festa
+socket.on("partyCreatedGlobal", ({ id }) => {
+  console.log("Festa criada:", id);
+
+  // abre automaticamente o admin da festa correta
+  window.location.href = `/admin.html?party=${id}`;
+});
+</script>
+
+</body>
+</html>

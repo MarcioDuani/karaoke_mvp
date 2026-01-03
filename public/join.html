@@ -1,41 +1,74 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Entrar na Festa</title>
-  <script src="/socket.io/socket.io.js"></script>
+<meta charset="UTF-8">
+<title>Entrar na Festa</title>
+
+<style>
+body {
+  background: #111;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.card {
+  background: #1c1c1c;
+  padding: 40px;
+  border-radius: 12px;
+  width: 320px;
+  text-align: center;
+}
+
+input, button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+input {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+button {
+  background: #00c853;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #00e676;
+}
+</style>
 </head>
+
 <body>
 
-<h2 id="partyName">Carregando festa...</h2>
+<div class="card">
+  <h2>🎤 Entrar na Festa</h2>
+  <p>Digite seu nome para cantar</p>
 
-<label>Seu nome:</label><br>
-<input id="guestName"><br><br>
-
-<button onclick="enter()">Entrar na festa</button>
+  <input id="name" placeholder="Seu nome">
+  <button onclick="enter()">Entrar</button>
+</div>
 
 <script>
-const socket = io();
-const params = new URLSearchParams(window.location.search);
-const partyId = params.get("party");
-
-socket.emit("getParty", partyId);
-
-socket.on("partyInfo", party => {
-  document.getElementById("partyName").innerText =
-    "🎉 Festa: " + party.name;
-});
-
 function enter() {
-  const name = document.getElementById("guestName").value;
-  if (!name) {
-    alert("Digite seu nome");
-    return;
-  }
+  const name = document.getElementById("name").value;
+  const party = new URLSearchParams(location.search).get("party");
 
-  // salva localmente e vai para a busca
+  if (!name || !party) return;
+
   localStorage.setItem("guestName", name);
-  localStorage.setItem("partyId", partyId);
+  localStorage.setItem("partyId", party);
 
   window.location.href = "/karaoke.html";
 }

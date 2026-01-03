@@ -1,6 +1,8 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const os = require("os");
+
 
 console.log(">>> server.js começou a executar");
 
@@ -14,6 +16,24 @@ app.use(express.static("public"));
 const YOUTUBE_API_KEY = "AIzaSyCzp7_Fm6kBDT6Kn_mAd3oYrJCyCIiyqNI";
 
 const parties = {};
+
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+
+  return "localhost";
+}
+
+const SERVER_IP = getLocalIP();
+
+console.log(">>> IP do servidor:", SERVER_IP);
 
 // =========================
 // ROTAS HTTP (API)
@@ -74,16 +94,28 @@ function generateId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+app.get("/api/server-ip", (req, res) => {
+  res.json({ ip: SERVER_IP });
+});
+
 io.on("connection", socket => {
 
-  socket.on("createParty", partyName => {
-    const id = generateId();
-    parties[id] = {
-      name: partyName,
-      queue: []
-    };
-    socket.emit("partyCreated", { id, name: partyName });
-  });
+ socket.on("createParty", partyName => {
+  const id = generateId();
+
+  parties[id] = {
+    name: partyName,
+    queue: []
+  };
+
+  // resposta para quem criou (QR)
+  socket.emit("partyCreated", { id, name: partyName });
+
+  // 🔥 AVISA TODOS OS HOSTS (Electron)
+  io.emit("partyCreatedGlobal", { id });
+});
+
+
 
   socket.on("joinParty", partyId => {
     if (!parties[partyId]) return;
