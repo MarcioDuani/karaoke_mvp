@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <title>Karaokê - Admin</title>
 
+  <!-- Socket.IO -->
   <script src="/socket.io/socket.io.js"></script>
+
+  <!-- YouTube IFrame Player API -->
   <script src="https://www.youtube.com/iframe_api"></script>
 
   <style>
@@ -42,8 +45,8 @@
     }
 
     button {
-      margin: 20px;
-      padding: 14px 28px;
+      margin: 15px;
+      padding: 14px 26px;
       font-size: 18px;
       cursor: pointer;
     }
@@ -58,12 +61,18 @@
   <div id="player"></div>
 </div>
 
+<div>
+  <button onclick="enableSound()">🔊 Ativar som</button>
+  <button onclick="nextSong()">⏭ Próxima música</button>
+</div>
+
 <h2>🎵 Fila</h2>
 <ul id="queue"></ul>
 
-<button onclick="nextSong()">⏭ Próxima música</button>
-
 <script>
+  // =========================
+  // SOCKET.IO
+  // =========================
   const socket = io();
   const partyId = new URLSearchParams(window.location.search).get("party");
 
@@ -74,6 +83,9 @@
 
   socket.emit("joinParty", partyId);
 
+  // =========================
+  // ESTADO
+  // =========================
   let player;
   let playerReady = false;
   let currentVideoId = null;
@@ -105,17 +117,29 @@
   function playVideo(videoId) {
     if (!playerReady) return;
     if (!videoId) return;
-
-    // 🔴 REGRA CRÍTICA: só carrega se for outro vídeo
     if (currentVideoId === videoId) return;
 
     currentVideoId = videoId;
+
+    // carrega MUTADO (obrigatório para autoplay)
     player.loadVideoById(videoId);
+    player.mute();
+
+    // tenta tocar após pequeno delay
+    setTimeout(() => {
+      player.playVideo();
+    }, 300);
   }
 
   function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.ENDED) {
-      socket.emit("nextSong", partyId);
+      nextSong();
+    }
+  }
+
+  function enableSound() {
+    if (player && player.isMuted()) {
+      player.unMute();
     }
   }
 
