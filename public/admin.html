@@ -2,23 +2,30 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Admin - Karaoke</title>
+  <title>Karaokê - Admin</title>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
 
   <style>
     body {
+      margin: 0;
       background: #111;
-      color: white;
+      color: #fff;
       font-family: Arial, sans-serif;
       text-align: center;
     }
 
-    #player {
+    #player-container {
       width: 80%;
       height: 450px;
       margin: 20px auto;
-      background: black;
+      background: #000;
+    }
+
+    #player {
+      width: 100%;
+      height: 100%;
     }
 
     ul {
@@ -26,17 +33,17 @@
       padding: 0;
       width: 80%;
       margin: auto;
+      text-align: left;
     }
 
     li {
       padding: 10px;
       border-bottom: 1px solid #333;
-      text-align: left;
     }
 
     button {
       margin: 20px;
-      padding: 15px 30px;
+      padding: 14px 28px;
       font-size: 18px;
       cursor: pointer;
     }
@@ -45,10 +52,10 @@
 
 <body>
 
-<h1>🎤 Karaoke - Admin</h1>
+<h1>🎤 Karaokê – Admin</h1>
 
-<div id="player">
-  <p>Nenhuma música tocando</p>
+<div id="player-container">
+  <div id="player"></div>
 </div>
 
 <h2>🎵 Fila</h2>
@@ -58,52 +65,80 @@
 
 <script>
   const socket = io();
-
   const partyId = new URLSearchParams(window.location.search).get("party");
 
   if (!partyId) {
     alert("Festa não informada");
-    throw new Error("Sem partyId");
+    throw new Error("partyId ausente");
   }
 
   socket.emit("joinParty", partyId);
 
+  let player;
+  let playerReady = false;
   let currentVideoId = null;
 
+  // =========================
+  // YOUTUBE PLAYER
+  // =========================
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player("player", {
+      width: "100%",
+      height: "100%",
+      playerVars: {
+        controls: 1,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1,
+        enablejsapi: 1,
+        origin: window.location.origin
+      },
+      events: {
+        onReady: () => {
+          playerReady = true;
+        },
+        onStateChange: onPlayerStateChange
+      }
+    });
+  }
+
+  function playVideo(videoId) {
+    if (!playerReady) return;
+    if (!videoId) return;
+
+    // 🔴 REGRA CRÍTICA: só carrega se for outro vídeo
+    if (currentVideoId === videoId) return;
+
+    currentVideoId = videoId;
+    player.loadVideoById(videoId);
+  }
+
+  function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+      socket.emit("nextSong", partyId);
+    }
+  }
+
+  // =========================
+  // FILA
+  // =========================
   socket.on("queueUpdate", queue => {
     const list = document.getElementById("queue");
     list.innerHTML = "";
 
     if (queue.length > 0) {
       playVideo(queue[0].videoId);
-    } else {
-      document.getElementById("player").innerHTML =
-        "<p>Nenhuma música na fila</p>";
     }
 
     queue.forEach((item, index) => {
       const li = document.createElement("li");
-      li.textContent = `${index + 1}. ${item.title || "Sem título"} — ${item.singer || "?"}`;
+      li.innerHTML = `
+        <strong>${index + 1}.</strong> ${item.title || "Sem título"}
+        <br>🎤 <em>${item.singer || "Desconhecido"}</em>
+      `;
       list.appendChild(li);
     });
   });
-
-  function playVideo(videoId) {
-    if (currentVideoId === videoId) return;
-
-    currentVideoId = videoId;
-
-    document.getElementById("player").innerHTML = `
-      <iframe
-        width="100%"
-        height="100%"
-        src="https://www.youtube.com/embed/${videoId}?autoplay=1"
-        frameborder="0"
-        allow="autoplay; encrypted-media"
-        allowfullscreen>
-      </iframe>
-    `;
-  }
 
   function nextSong() {
     socket.emit("nextSong", partyId);

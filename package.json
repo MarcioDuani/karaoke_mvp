@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "express": "^5.2.1",
+    "node-fetch": "^3.3.2",
     "socket.io": "^4.8.3"
   },
   "name": "karaoke_mvp",
@@ -14,6 +15,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {}
+  "type": "commonjs"
 }

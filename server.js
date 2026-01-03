@@ -2,106 +2,120 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
+console.log(">>> server.js começou a executar");
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static("public"));
 
-/*
-  Estrutura:
-  parties = {
-    ABC123: {
-      name: "Minha Festa",
-      queue: [
-        {
-          videoId,
-          title,
-          singer,
-          thumbnail
-        }
-      ]
-    }
-  }
-*/
+// ⚠️ depois colocamos em .env
+const YOUTUBE_API_KEY = "AIzaSyCzp7_Fm6kBDT6Kn_mAd3oYrJCyCIiyqNI";
+
 const parties = {};
 
-// Gera ID curto para a festa
+// =========================
+// ROTAS HTTP (API)
+// =========================
+app.get("/api/search", async (req, res) => {
+  const query = req.query.q;
+
+  if (!query) {
+    return res.status(400).json({ error: "Busca vazia" });
+  }
+
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(
+      query + " karaoke"
+    )}&key=${YOUTUBE_API_KEY}`;
+
+    // fetch NATIVO do Node 22
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // pega os IDs retornados na busca
+const videoIds = data.items.map(item => item.id.videoId).join(",");
+
+// chama a API de vídeos para validar embed
+const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=status&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
+const detailsResponse = await fetch(detailsUrl);
+const detailsData = await detailsResponse.json();
+
+// cria um mapa id -> embeddable
+const embeddableMap = {};
+detailsData.items.forEach(v => {
+  embeddableMap[v.id] = v.status.embeddable;
+});
+
+// retorna APENAS vídeos embedáveis
+const videos = data.items
+  .filter(item => embeddableMap[item.id.videoId])
+  .map(item => ({
+    videoId: item.id.videoId,
+    title: item.snippet.title,
+    channel: item.snippet.channelTitle,
+    thumbnail: item.snippet.thumbnails.medium.url
+  }));
+
+ res.json(videos);
+  } catch (err) {
+    console.error("Erro API YouTube:", err);
+    res.status(500).json({ error: "Erro ao buscar vídeos" });
+  }
+
+   
+});
+
+// =========================
+// SOCKET.IO
+// =========================
 function generateId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 io.on("connection", socket => {
-  console.log("🟢 Usuário conectado");
 
-  // Criar festa
   socket.on("createParty", partyName => {
     const id = generateId();
-
     parties[id] = {
       name: partyName,
       queue: []
     };
-
-    socket.emit("partyCreated", {
-      id,
-      name: partyName
-    });
-
-    console.log(`🎉 Festa criada: ${partyName} (${id})`);
+    socket.emit("partyCreated", { id, name: partyName });
   });
 
-  // Obter informações da festa
-  socket.on("getParty", partyId => {
-    if (parties[partyId]) {
-      socket.emit("partyInfo", parties[partyId]);
-    }
-  });
-
-  // Entrar na festa (convidado ou admin)
   socket.on("joinParty", partyId => {
     if (!parties[partyId]) return;
-
     socket.join(partyId);
-
-    // Envia a fila atual
     socket.emit("queueUpdate", parties[partyId].queue);
   });
 
-  // Adicionar música à fila (PADRONIZADO)
-  socket.on("addSong", data => {
-    const { partyId, videoId, title, singer, thumbnail } = data;
-
+  socket.on("addSong", ({ partyId, videoId, title, singer, thumbnail }) => {
     if (!parties[partyId]) return;
-    if (!videoId) return;
 
-    const song = {
+    parties[partyId].queue.push({
       videoId,
-      title: title || "Sem título",
-      singer: singer || "Desconhecido",
-      thumbnail: thumbnail || ""
-    };
-
-    parties[partyId].queue.push(song);
-
-    console.log(`🎵 Música adicionada na festa ${partyId}:`, song);
+      title,
+      singer,
+      thumbnail
+    });
 
     io.to(partyId).emit("queueUpdate", parties[partyId].queue);
   });
 
-  // Avançar para a próxima música
   socket.on("nextSong", partyId => {
     if (!parties[partyId]) return;
-
     parties[partyId].queue.shift();
-
     io.to(partyId).emit("queueUpdate", parties[partyId].queue);
   });
 
-  socket.on("disconnect", () => {
-    console.log("🔴 Usuário desconectado");
-  });
 });
+
+// =========================
+// START SERVER (ISSO FALTAVA)
+// =========================
+console.log(">>> prestes a iniciar o servidor");
 
 server.listen(3000, () => {
   console.log("🎤 Karaoke rodando em http://localhost:3000");

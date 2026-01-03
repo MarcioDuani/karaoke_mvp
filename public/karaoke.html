@@ -10,21 +10,54 @@
       font-family: Arial, sans-serif;
       background: #111;
       color: white;
+      padding: 15px;
+    }
+
+    h2 {
       text-align: center;
-      padding: 20px;
     }
 
     input {
-      width: 80%;
+      width: 100%;
       padding: 12px;
       font-size: 16px;
       margin-bottom: 10px;
     }
 
     button {
-      padding: 12px 20px;
-      font-size: 16px;
+      padding: 10px;
+      font-size: 14px;
       cursor: pointer;
+    }
+
+    .video {
+      display: flex;
+      gap: 10px;
+      background: #1e1e1e;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      align-items: center;
+    }
+
+    .video img {
+      width: 120px;
+      border-radius: 4px;
+    }
+
+    .video-info {
+      flex: 1;
+    }
+
+    .video-info h4 {
+      margin: 0 0 6px 0;
+      font-size: 14px;
+    }
+
+    .video-info p {
+      margin: 0;
+      font-size: 12px;
+      color: #ccc;
     }
   </style>
 </head>
@@ -33,12 +66,10 @@
 
 <h2>🎤 Escolha sua música</h2>
 
-<input
-  id="song"
-  placeholder="Cole o link do YouTube"
-/>
-<br>
-<button id="addBtn">Adicionar à fila</button>
+<input id="search" placeholder="Digite a música que quer cantar">
+<button onclick="buscar()">Buscar</button>
+
+<div id="results"></div>
 
 <script>
   const socket = io();
@@ -53,37 +84,54 @@
 
   socket.emit("joinParty", partyId);
 
-  function extractVideoId(url) {
-    const regExp =
-      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return match && match[2].length === 11 ? match[2] : null;
+  async function buscar() {
+    const term = document.getElementById("search").value.trim();
+    if (!term) return;
+
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "🔍 Buscando músicas...";
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+      const videos = await response.json();
+
+      resultsDiv.innerHTML = "";
+
+      videos.forEach(video => {
+        const div = document.createElement("div");
+        div.className = "video";
+
+        div.innerHTML = `
+          <img src="${video.thumbnail}">
+          <div class="video-info">
+            <h4>${video.title}</h4>
+            <p>${video.channel}</p>
+            <button>➕ Reservar</button>
+          </div>
+        `;
+
+        div.querySelector("button").onclick = () => reservar(video);
+
+        resultsDiv.appendChild(div);
+      });
+
+    } catch (err) {
+      resultsDiv.innerHTML = "❌ Erro ao buscar músicas";
+      console.error(err);
+    }
   }
 
-  document.getElementById("addBtn").addEventListener("click", () => {
-    const input = document.getElementById("song").value.trim();
-    if (!input) {
-      alert("Cole o link do YouTube");
-      return;
-    }
-
-    const videoId = extractVideoId(input);
-    if (!videoId) {
-      alert("Link do YouTube inválido");
-      return;
-    }
-
+  function reservar(video) {
     socket.emit("addSong", {
       partyId,
-      videoId,
-      title: "Karaokê",
+      videoId: video.videoId,
+      title: video.title,
       singer: name,
-      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      thumbnail: video.thumbnail
     });
 
     alert("🎶 Música adicionada à fila!");
-    document.getElementById("song").value = "";
-  });
+  }
 </script>
 
 </body>
