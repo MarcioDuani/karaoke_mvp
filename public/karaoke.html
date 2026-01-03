@@ -1,111 +1,89 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <title>Escolher Música</title>
   <script src="/socket.io/socket.io.js"></script>
+
   <style>
-    body { font-family: Arial; padding: 15px; }
-    input, button { width: 100%; padding: 10px; margin-top: 10px; }
-    .result {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 10px;
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+      padding: 20px;
     }
-    img { width: 100%; }
+
+    input {
+      width: 80%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
   </style>
 </head>
+
 <body>
 
 <h2>🎤 Escolha sua música</h2>
 
-<input id="search" placeholder="Digite a música">
-<button onclick="buscar()">Buscar no YouTube</button>
-
-<div id="results"></div>
+<input
+  id="song"
+  placeholder="Cole o link do YouTube"
+/>
+<br>
+<button id="addBtn">Adicionar à fila</button>
 
 <script>
-const socket = io();
-const name = localStorage.getItem("guestName");
-const partyId = localStorage.getItem("partyId");
+  const socket = io();
 
-if (!name || !partyId) {
-  window.location.href = "/join.html";
-}
+  const name = localStorage.getItem("guestName");
+  const partyId = localStorage.getItem("partyId");
 
-socket.emit("joinParty", partyId);
+  if (!name || !partyId) {
+    alert("Sessão inválida. Entre novamente na festa.");
+    window.location.href = "/join.html";
+  }
 
-function buscar() {
-  const term = document.getElementById("search").value;
-  if (!term) return;
+  socket.emit("joinParty", partyId);
 
-  const query = encodeURIComponent(term + " karaoke");
-  const ytUrl = `https://www.youtube.com/results?search_query=${query}`;
+  function extractVideoId(url) {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  }
 
-  const results = document.getElementById("results");
-  results.innerHTML = `
-    <div class="result">
-      <p>🔎 Resultados do YouTube:</p>
-      <a href="${ytUrl}" target="_blank">Abrir resultados</a>
+  document.getElementById("addBtn").addEventListener("click", () => {
+    const input = document.getElementById("song").value.trim();
+    if (!input) {
+      alert("Cole o link do YouTube");
+      return;
+    }
 
-      <p style="margin-top:10px">
-        Depois de escolher o vídeo, cole o link aqui:
-      </p>
+    const videoId = extractVideoId(input);
+    if (!videoId) {
+      alert("Link do YouTube inválido");
+      return;
+    }
 
-      <input id="videoLink" placeholder="https://www.youtube.com/watch?v=...">
-      <button onclick="adicionar()">➕ Adicionar à fila</button>
-    </div>
-  `;
-}
-
-function extractVideoId(url) {
-  const regex = /(?:v=|\/)([0-9A-Za-z_-]{11})/;
-  const match = url.match(regex);
-  return match ? match[1] : null;
-}
-
-function adicionar() {
-  const link = document.getElementById("videoLink").value;
-  if (!link) return alert("Cole o link do vídeo");
-
-  const videoId = extractVideoId(link);
-  if (!videoId) return alert("Link do YouTube inválido");
-
-  fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`)
-  .then(res => res.json())
-  .then(data => {
-    const title = data && data.title
-      ? data.title
-      : "Vídeo karaokê selecionado";
-
-    const thumbnail = data && data.thumbnail_url
-      ? data.thumbnail_url
-      : `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-
-    socket.emit("addToQueue", {
+    socket.emit("addSong", {
       partyId,
       videoId,
-      title,
+      title: "Karaokê",
       singer: name,
-      thumbnail
+      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
     });
 
     alert("🎶 Música adicionada à fila!");
-    document.getElementById("videoLink").value = "";
-  })
-  .catch(() => {
-    socket.emit("addToQueue", {
-      partyId,
-      videoId,
-      title: "Vídeo karaokê selecionado",
-      singer: name,
-      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-    });
-
-    alert("🎶 Música adicionada à fila!");
+    document.getElementById("song").value = "";
   });
-
-}
 </script>
 
 </body>
