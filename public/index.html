@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Karaokê Party</title>
+</head>
+<body>
+
+<h1>🎤 Karaokê Party</h1>
+
+<div id="create">
+  <input id="partyName" placeholder="Nome da festa">
+  <button onclick="createParty()">Criar Festa</button>
+</div>
+
+<div id="partyArea" style="display:none;">
+  <h2 id="partyTitle"></h2>
+  <div id="qrcode"></div>
+
+  <h3>Fila</h3>
+  <ul id="queue"></ul>
+
+  <button onclick="next()">Próxima Música</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

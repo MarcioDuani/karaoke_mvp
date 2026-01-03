@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Escolher Música</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: Arial; padding: 15px; }
+    input, button { width: 100%; padding: 10px; margin-top: 10px; }
+    .result {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    img { width: 100%; }
+  </style>
+</head>
+<body>
+
+<h2>🎤 Escolha sua música</h2>
+
+<input id="search" placeholder="Digite a música">
+<button onclick="buscar()">Buscar no YouTube</button>
+
+<div id="results"></div>
+
+<script>
+const socket = io();
+const name = localStorage.getItem("guestName");
+const partyId = localStorage.getItem("partyId");
+
+if (!name || !partyId) {
+  window.location.href = "/join.html";
+}
+
+socket.emit("joinParty", partyId);
+
+function buscar() {
+  const term = document.getElementById("search").value;
+  if (!term) return;
+
+  const query = encodeURIComponent(term + " karaoke");
+  const ytUrl = `https://www.youtube.com/results?search_query=${query}`;
+
+  const results = document.getElementById("results");
+  results.innerHTML = `
+    <div class="result">
+      <p>🔎 Resultados do YouTube:</p>
+      <a href="${ytUrl}" target="_blank">Abrir resultados</a>
+
+      <p style="margin-top:10px">
+        Depois de escolher o vídeo, cole o link aqui:
+      </p>
+
+      <input id="videoLink" placeholder="https://www.youtube.com/watch?v=...">
+      <button onclick="adicionar()">➕ Adicionar à fila</button>
+    </div>
+  `;
+}
+
+function extractVideoId(url) {
+  const regex = /(?:v=|\/)([0-9A-Za-z_-]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
+
+function adicionar() {
+  const link = document.getElementById("videoLink").value;
+  if (!link) return alert("Cole o link do vídeo");
+
+  const videoId = extractVideoId(link);
+  if (!videoId) return alert("Link do YouTube inválido");
+
+  fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`)
+  .then(res => res.json())
+  .then(data => {
+    const title = data && data.title
+      ? data.title
+      : "Vídeo karaokê selecionado";
+
+    const thumbnail = data && data.thumbnail_url
+      ? data.thumbnail_url
+      : `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+
+    socket.emit("addToQueue", {
+      partyId,
+      videoId,
+      title,
+      singer: name,
+      thumbnail
+    });
+
+    alert("🎶 Música adicionada à fila!");
+    document.getElementById("videoLink").value = "";
+  })
+  .catch(() => {
+    socket.emit("addToQueue", {
+      partyId,
+      videoId,
+      title: "Vídeo karaokê selecionado",
+      singer: name,
+      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+    });
+
+    alert("🎶 Música adicionada à fila!");
+  });
+
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Entrar na Festa</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+<h2 id="partyName">Carregando festa...</h2>
+
+<label>Seu nome:</label><br>
+<input id="guestName"><br><br>
+
+<button onclick="enter()">Entrar na festa</button>
+
+<script>
+const socket = io();
+const params = new URLSearchParams(window.location.search);
+const partyId = params.get("party");
+
+socket.emit("getParty", partyId);
+
+socket.on("partyInfo", party => {
+  document.getElementById("partyName").innerText =
+    "🎉 Festa: " + party.name;
+});
+
+function enter() {
+  const name = document.getElementById("guestName").value;
+  if (!name) {
+    alert("Digite seu nome");
+    return;
+  }
+
+  // salva localmente e vai para a busca
+  localStorage.setItem("guestName", name);
+  localStorage.setItem("partyId", partyId);
+
+  window.location.href = "/karaoke.html";
+}
+</script>
+
+</body>
+</html>
