@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Karaoke</title>
+
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    #player {
+      width: 80%;
+      height: 450px;
+      margin: 20px auto;
+      background: black;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      width: 80%;
+      margin: auto;
+    }
+
+    li {
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+
+    button {
+      margin: 20px;
+      padding: 15px 30px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🎤 Karaoke - Admin</h1>
+
+<div id="player">
+  <p>Nenhuma música tocando</p>
+</div>
+
+<h2>🎵 Fila</h2>
+<ul id="queue"></ul>
+
+<button onclick="nextSong()">⏭ Próxima música</button>
+
+<script>
+  const socket = io();
+
+  const partyId = new URLSearchParams(window.location.search).get("party");
+
+  if (!partyId) {
+    alert("Festa não informada");
+    throw new Error("Sem partyId");
+  }
+
+  socket.emit("joinParty", partyId);
+
+  let currentVideoId = null;
+
+  socket.on("queueUpdate", queue => {
+    const list = document.getElementById("queue");
+    list.innerHTML = "";
+
+    if (queue.length > 0) {
+      playVideo(queue[0].videoId);
+    } else {
+      document.getElementById("player").innerHTML =
+        "<p>Nenhuma música na fila</p>";
+    }
+
+    queue.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.textContent = `${index + 1}. ${item.title || "Sem título"} — ${item.singer || "?"}`;
+      list.appendChild(li);
+    });
+  });
+
+  function playVideo(videoId) {
+    if (currentVideoId === videoId) return;
+
+    currentVideoId = videoId;
+
+    document.getElementById("player").innerHTML = `
+      <iframe
+        width="100%"
+        height="100%"
+        src="https://www.youtube.com/embed/${videoId}?autoplay=1"
+        frameborder="0"
+        allow="autoplay; encrypted-media"
+        allowfullscreen>
+      </iframe>
+    `;
+  }
+
+  function nextSong() {
+    socket.emit("nextSong", partyId);
+  }
+</script>
+
+</body>
+</html>

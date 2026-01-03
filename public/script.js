@@ -18,10 +18,10 @@ socket.on("partyCreated", party => {
   document.getElementById("partyArea").style.display = "block";
   document.getElementById("partyTitle").innerText = party.name;
 
-  // 🔥 AQUI É O LUGAR CERTO 🔥
+  // 
   document.getElementById("qrcode").innerHTML = "";
 
-// 🔥 COLOQUE SEU IP AQUI 🔥
+// 
 const ip = "192.168.0.143"; // <-- troque pelo SEU IP
 const url = `http://${ip}:3000/join.html?party=${partyId}`;
 
