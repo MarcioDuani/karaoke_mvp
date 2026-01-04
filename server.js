@@ -1,3 +1,6 @@
+require("dotenv").config();
+
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -13,7 +16,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 // ⚠️ depois colocamos em .env
-const YOUTUBE_API_KEY = "AIzaSyCzp7_Fm6kBDT6Kn_mAd3oYrJCyCIiyqNI";
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 const parties = {};
 
