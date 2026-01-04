@@ -21,6 +21,7 @@ socket.on("partyCreated", party => {
   // 
   document.getElementById("qrcode").innerHTML = "";
 
+
 // 
 const ip = "192.168.0.143"; // <-- troque pelo SEU IP
 const url = `http://${ip}:3000/join.html?party=${partyId}`;
@@ -44,3 +45,25 @@ socket.on("queueUpdate", queue => {
 function next() {
   socket.emit("nextSong", partyId);
 }
+
+document.getElementById("startBtn").onclick = () => {
+  if (!playerReady) return;
+
+  hasUserStarted = true;
+  player.playVideo();
+
+  document.getElementById("startOverlay").style.display = "none";
+};
+
+window.addEventListener("DOMContentLoaded", () => {
+  const startBtn = document.getElementById("startBtn");
+  const overlay = document.getElementById("startOverlay");
+
+  startBtn.onclick = () => {
+    if (!playerReady) return;
+
+    hasUserStarted = true;
+    player.playVideo();
+    overlay.style.display = "none";
+  };
+});
