@@ -1,138 +1,96 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Escolher Música</title>
-  <script src="/socket.io/socket.io.js"></script>
+<meta charset="UTF-8">
+<title>Escolher Música</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: white;
-      padding: 15px;
-    }
-
-    h2 {
-      text-align: center;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
-
-    button {
-      padding: 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    .video {
-      display: flex;
-      gap: 10px;
-      background: #1e1e1e;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 6px;
-      align-items: center;
-    }
-
-    .video img {
-      width: 120px;
-      border-radius: 4px;
-    }
-
-    .video-info {
-      flex: 1;
-    }
-
-    .video-info h4 {
-      margin: 0 0 6px 0;
-      font-size: 14px;
-    }
-
-    .video-info p {
-      margin: 0;
-      font-size: 12px;
-      color: #ccc;
-    }
-  </style>
+<link rel="stylesheet" href="/base.css">
+<script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
+<div class="container">
+  <div class="card">
 
-<h2>🎤 Escolha sua música</h2>
+    <h2>🎶 Escolha sua música</h2>
+    <p>Busque um karaokê e entre na fila</p>
 
-<input id="search" placeholder="Digite a música que quer cantar">
-<button onclick="buscar()">Buscar</button>
+    <input id="search" placeholder="Ex: Evidências, Legião Urbana...">
+    <button onclick="search()">Buscar</button>
 
-<div id="results"></div>
+    <div id="results"></div>
+
+  </div>
+</div>
 
 <script>
-  const socket = io();
+const socket = io();
+const guest = localStorage.getItem("guestName");
+const partyId = localStorage.getItem("partyId");
 
-  const name = localStorage.getItem("guestName");
-  const partyId = localStorage.getItem("partyId");
+if (!guest || !partyId) {
+  alert("Sessão inválida, entre novamente na festa");
+  window.location.href = "/join.html";
+}
 
-  if (!name || !partyId) {
-    alert("Sessão inválida. Entre novamente na festa.");
-    window.location.href = "/join.html";
-  }
+socket.emit("joinParty", partyId);
 
-  socket.emit("joinParty", partyId);
+async function search() {
+  const q = document.getElementById("search").value;
+  if (!q) return;
 
-  async function buscar() {
-    const term = document.getElementById("search").value.trim();
-    if (!term) return;
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  const videos = await res.json();
 
-    const resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = "🔍 Buscando músicas...";
+  const list = document.getElementById("results");
+  list.innerHTML = "";
 
-    try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
-      const videos = await response.json();
+  videos.forEach(v => {
+    const card = document.createElement("div");
+    card.className = "video-card";
 
-      resultsDiv.innerHTML = "";
+    const thumb = document.createElement("div");
+    thumb.className = "video-thumb";
+    thumb.style.backgroundImage = `url(${v.thumbnail})`;
 
-      videos.forEach(video => {
-        const div = document.createElement("div");
-        div.className = "video";
+    const info = document.createElement("div");
+    info.className = "video-info";
 
-        div.innerHTML = `
-          <img src="${video.thumbnail}">
-          <div class="video-info">
-            <h4>${video.title}</h4>
-            <p>${video.channel}</p>
-            <button>➕ Reservar</button>
-          </div>
-        `;
+    const title = document.createElement("strong");
+    title.innerText = v.title;
 
-        div.querySelector("button").onclick = () => reservar(video);
+    const channel = document.createElement("small");
+    channel.innerText = v.channel;
 
-        resultsDiv.appendChild(div);
-      });
+    const btn = document.createElement("button");
+    btn.className = "secondary";
+    btn.innerText = "🎤 Cantar essa";
 
-    } catch (err) {
-      resultsDiv.innerHTML = "❌ Erro ao buscar músicas";
-      console.error(err);
-    }
-  }
+   btn.addEventListener("click", () => {
+  socket.emit("addSong", {
+    partyId,
+    videoId: v.videoId,
+    title: v.title,
+    singer: guest,
+    thumbnail: v.thumbnail
+  });
 
-  function reservar(video) {
-    socket.emit("addSong", {
-      partyId,
-      videoId: video.videoId,
-      title: video.title,
-      singer: name,
-      thumbnail: video.thumbnail
-    });
+  alert("🎉 Música adicionada à fila!");
+});
 
-    alert("🎶 Música adicionada à fila!");
-  }
+
+    info.appendChild(title);
+    info.appendChild(channel);
+    info.appendChild(btn);
+
+    card.appendChild(thumb);
+    card.appendChild(info);
+
+    list.appendChild(card);
+  });
+}
+
 </script>
-
 </body>
 </html>

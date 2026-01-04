@@ -3,69 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <title>Entrar na Festa</title>
-
-<style>
-body {
-  background: #111;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.card {
-  background: #1c1c1c;
-  padding: 40px;
-  border-radius: 12px;
-  width: 320px;
-  text-align: center;
-}
-
-input, button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 15px;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-}
-
-input {
-  background: #2a2a2a;
-  color: #fff;
-}
-
-button {
-  background: #00c853;
-  color: #fff;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-button:hover {
-  background: #00e676;
-}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/base.css">
 </head>
 
 <body>
+<div class="container">
+  <div class="card">
+    <h1>🎤 Bem-vindo</h1>
+    <p>Digite seu nome para entrar na festa</p>
 
-<div class="card">
-  <h2>🎤 Entrar na Festa</h2>
-  <p>Digite seu nome para cantar</p>
+    <input id="name" placeholder="Seu nome">
 
-  <input id="name" placeholder="Seu nome">
-  <button onclick="enter()">Entrar</button>
+    <button onclick="enter()">Entrar na Festa</button>
+  </div>
 </div>
 
 <script>
 function enter() {
-  const name = document.getElementById("name").value;
+  const name = document.getElementById("name").value.trim();
   const party = new URLSearchParams(location.search).get("party");
 
-  if (!name || !party) return;
+  if (!name || !party) {
+    alert("Nome ou festa inválidos");
+    return;
+  }
 
   localStorage.setItem("guestName", name);
   localStorage.setItem("partyId", party);
@@ -73,6 +35,5 @@ function enter() {
   window.location.href = "/karaoke.html";
 }
 </script>
-
 </body>
 </html>

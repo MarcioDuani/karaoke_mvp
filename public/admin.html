@@ -2,32 +2,63 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Karaokê – Admin</title>
+<title>Karaokê – Duani Art'S</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <style>
-body {
-  margin: 0;
-  background: #111;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  text-align: center;
+:root {
+  --bg: #0f0f0f;
+  --card: #1c1c1c;
+  --accent: #ff2d55;
+  --text: #ffffff;
+  --muted: #aaaaaa;
 }
 
-#player-container {
-  width: 80%;
-  height: 450px;
-  margin: 20px auto;
-  background: #000;
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+header {
+  text-align: center;
+  padding: 20px;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+
+/* PLAYER */
+.player-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 15px;
   position: relative;
 }
 
+#player {
+  width: 100%;
+  height: 420px;
+  border-radius: 12px;
+}
+
+/* OVERLAY */
 #startOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(0,0,0,0.85);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -36,44 +67,133 @@ body {
 
 #startBtn {
   font-size: 32px;
-  padding: 20px 40px;
-  border-radius: 10px;
+  padding: 18px 42px;
+  border-radius: 50px;
+  border: none;
   cursor: pointer;
+  background: var(--accent);
+  color: white;
 }
 
-ul {
-  list-style: none;
-  padding: 0;
-  width: 80%;
-  margin: auto;
-  text-align: left;
+/* AGORA TOCANDO */
+.now-playing {
+  margin-top: 15px;
+  text-align: center;
 }
-li {
+
+.now-playing h2 { margin: 6px 0; }
+.now-playing p { margin: 0; color: var(--muted); }
+
+/* FILA */
+.queue-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  max-height: 650px;
+}
+
+.queue-card h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+/* SCROLL */
+.queue-list {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* ITEM */
+.queue-item {
+  display: flex;
+  gap: 12px;
   padding: 10px;
   border-bottom: 1px solid #333;
+}
+
+.queue-thumb {
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.queue-info {
+  flex: 1;
+}
+
+.queue-info strong {
+  display: block;
+  font-size: 15px;
+}
+
+.queue-info small {
+  color: var(--muted);
+}
+
+/* CONTROLES */
+.controls {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.controls button {
+  padding: 14px 26px;
+  font-size: 18px;
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: white;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎤 Karaokê – Admin</h1>
+<header>🎤 Karaokê – Duani Art'S</header>
 
-<div id="player-container">
-  <div id="startOverlay">
-    <button id="startBtn">▶ Iniciar Festa</button>
+<div class="main">
+
+  <!-- PLAYER -->
+  <div class="player-card">
+    <div id="startOverlay">
+      <button id="startBtn">▶ Iniciar Festa</button>
+    </div>
+
+    <div id="player"></div>
+
+    <div class="now-playing">
+      <h2 id="nowTitle">Aguardando música…</h2>
+      <p id="nowSinger"></p>
+    </div>
   </div>
-  <div id="player"></div>
+
+  <!-- FILA -->
+  <div class="queue-card">
+    <h3>🎵 Fila</h3>
+
+    <div class="queue-list" id="queue"></div>
+
+    <div class="controls">
+      <button onclick="nextSong()">⏭ Próxima</button>
+    </div>
+  </div>
+
 </div>
-
-<button onclick="nextSong()">⏭ Próxima música</button>
-
-<h2>🎵 Fila</h2>
-<ul id="queue"></ul>
 
 <script>
 const socket = io();
 const partyId = new URLSearchParams(location.search).get("party");
+
+if (!partyId) {
+  alert("Festa não informada");
+  throw new Error("partyId ausente");
+}
 
 socket.emit("joinParty", partyId);
 
@@ -82,12 +202,16 @@ let playerReady = false;
 let currentVideoId = null;
 let hasUserStarted = false;
 
-// YouTube API
+/* YOUTUBE PLAYER */
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
     width: "100%",
     height: "100%",
-    playerVars: { controls: 1 },
+    playerVars: {
+      controls: 1,
+      rel: 0,
+      modestbranding: 1
+    },
     events: {
       onReady: () => playerReady = true,
       onStateChange: onPlayerStateChange
@@ -110,34 +234,52 @@ function playVideo(videoId) {
 }
 
 function onPlayerStateChange(e) {
-  if (e.data === YT.PlayerState.PLAYING) {
-    hasUserStarted = true;
-  }
-  if (e.data === YT.PlayerState.ENDED) {
-    nextSong();
-  }
+  if (e.data === YT.PlayerState.PLAYING) hasUserStarted = true;
+  if (e.data === YT.PlayerState.ENDED) nextSong();
 }
 
-// Overlay botão
+/* BOTÃO INICIAR */
 document.getElementById("startBtn").onclick = () => {
   hasUserStarted = true;
   player.playVideo();
   document.getElementById("startOverlay").style.display = "none";
 };
 
-// Fila
+/* FILA */
 socket.on("queueUpdate", queue => {
-  const ul = document.getElementById("queue");
-  ul.innerHTML = "";
+  const container = document.getElementById("queue");
+  container.innerHTML = "";
 
   if (queue.length > 0) {
     playVideo(queue[0].videoId);
+    document.getElementById("nowTitle").innerText = queue[0].title;
+    document.getElementById("nowSinger").innerText = "🎤 " + queue[0].singer;
+  } else {
+    document.getElementById("nowTitle").innerText = "Aguardando música…";
+    document.getElementById("nowSinger").innerText = "";
   }
 
   queue.forEach((q, i) => {
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${i+1}.</strong> ${q.title}<br>🎤 ${q.singer}`;
-    ul.appendChild(li);
+    const item = document.createElement("div");
+    item.className = "queue-item";
+
+    const thumb = document.createElement("div");
+    thumb.className = "queue-thumb";
+    thumb.style.backgroundImage = q.thumbnail
+    ? `url(${q.thumbnail})`
+    : "url('https://i.imgur.com/8Km9tLL.png')";
+
+
+    const info = document.createElement("div");
+    info.className = "queue-info";
+    info.innerHTML = `
+      <strong>${i + 1}. ${q.title}</strong>
+      <small>🎤 ${q.singer}</small>
+    `;
+
+    item.appendChild(thumb);
+    item.appendChild(info);
+    container.appendChild(item);
   });
 });
 
