@@ -3,34 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <title>Karaokê – Duani Art'S</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <style>
-:root {
-  --bg: #0f0f0f;
-  --card: #1c1c1c;
-  --accent: #ff2d55;
-  --text: #ffffff;
-  --muted: #aaaaaa;
-}
-
-* { box-sizing: border-box; }
-
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Segoe UI", Arial, sans-serif;
+  background: #0f0f0f;
+  color: white;
+  font-family: Arial, sans-serif;
 }
 
 header {
   text-align: center;
   padding: 20px;
   font-size: 28px;
-  font-weight: bold;
 }
 
 .main {
@@ -40,29 +28,82 @@ header {
   padding: 20px;
 }
 
-/* PLAYER */
-.player-card {
-  background: var(--card);
+.player-card, .queue-card {
+  background: #1c1c1c;
   border-radius: 16px;
-  padding: 15px;
-  position: relative;
+  padding: 16px;
 }
 
 #player {
   width: 100%;
   height: 420px;
-  border-radius: 12px;
 }
 
-/* OVERLAY */
-#startOverlay {
-  position: absolute;
+.now-playing {
+  text-align: center;
+}
+
+.queue-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.queue-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.queue-thumb {
+  width: 120px;
+  height: 68px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 8px;
+}
+
+.controls {
+  text-align: center;
+  margin-top: 10px;
+}
+
+button {
+  padding: 14px 26px;
+  font-size: 16px;
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  background: #ff0055;
+  color: white;
+}
+
+/* SCORE */
+.score-overlay {
+  position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10;
+  z-index: 999;
+}
+
+.score-overlay.hidden {
+  display: none;
+}
+
+.score-box {
+  background: #151515;
+  padding: 40px 60px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(255,0,85,0.4);
+}
+
+#scoreValue {
+  font-size: 96px;
+  font-weight: bold;
 }
 
 #startBtn {
@@ -74,82 +115,20 @@ header {
   background: var(--accent);
   color: white;
 }
-
-/* AGORA TOCANDO */
-.now-playing {
-  margin-top: 15px;
-  text-align: center;
-}
-
-.now-playing h2 { margin: 6px 0; }
-.now-playing p { margin: 0; color: var(--muted); }
-
-/* FILA */
-.queue-card {
-  background: var(--card);
-  border-radius: 16px;
-  padding: 15px;
+#startOverlay {
+  position: absolute;
+  inset: 0; /* cobre todo o player */
   display: flex;
-  flex-direction: column;
-  max-height: 650px;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 5;
+}
+#startBtn:hover {
+  transform: scale(1.05);
 }
 
-.queue-card h3 {
-  margin-top: 0;
-  text-align: center;
-}
 
-/* SCROLL */
-.queue-list {
-  overflow-y: auto;
-  padding-right: 6px;
-}
-
-/* ITEM */
-.queue-item {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-  border-bottom: 1px solid #333;
-}
-
-.queue-thumb {
-  width: 120px;
-  height: 68px;
-  border-radius: 8px;
-  background-size: cover;
-  background-position: center;
-  flex-shrink: 0;
-}
-
-.queue-info {
-  flex: 1;
-}
-
-.queue-info strong {
-  display: block;
-  font-size: 15px;
-}
-
-.queue-info small {
-  color: var(--muted);
-}
-
-/* CONTROLES */
-.controls {
-  text-align: center;
-  margin-top: 10px;
-}
-
-.controls button {
-  padding: 14px 26px;
-  font-size: 18px;
-  border-radius: 30px;
-  border: none;
-  cursor: pointer;
-  background: var(--accent);
-  color: white;
-}
 </style>
 </head>
 
@@ -159,8 +138,7 @@ header {
 
 <div class="main">
 
-  <!-- PLAYER -->
-  <div class="player-card">
+  <div class="player-card" style="position: relative;">
     <div id="startOverlay">
       <button id="startBtn">▶ Iniciar Festa</button>
     </div>
@@ -173,12 +151,9 @@ header {
     </div>
   </div>
 
-  <!-- FILA -->
   <div class="queue-card">
     <h3>🎵 Fila</h3>
-
     <div class="queue-list" id="queue"></div>
-
     <div class="controls">
       <button onclick="nextSong()">⏭ Próxima</button>
     </div>
@@ -186,15 +161,69 @@ header {
 
 </div>
 
-<script>
-const socket = io();
-const partyId = new URLSearchParams(location.search).get("party");
+<!-- SCORE OVERLAY -->
+<div id="scoreOverlay" class="score-overlay hidden">
+  <div class="score-box">
+    <h2 id="scoreMessage"></h2>
+    <div id="scoreValue">0</div>
+  </div>
+</div>
 
-if (!partyId) {
-  alert("Festa não informada");
-  throw new Error("partyId ausente");
+<audio id="drumSound" preload="auto"
+  src="https://cdn.pixabay.com/audio/2022/03/15/audio_6b7a4c7c78.mp3">
+</audio>
+
+<script>
+/* SCORE STATE */
+let scoreShown = false;
+let scoreWatcher = null;
+
+function resetScoreState() {
+  scoreShown = false;
+  if (scoreWatcher) {
+    clearInterval(scoreWatcher);
+    scoreWatcher = null;
+  }
 }
 
+function showScore() {
+  const overlay = document.getElementById("scoreOverlay");
+  const value = document.getElementById("scoreValue");
+  const msg = document.getElementById("scoreMessage");
+  const drum = document.getElementById("drumSound");
+
+  overlay.classList.remove("hidden");
+
+  const finalScore = Math.floor(Math.random() * 101);
+  let current = 0;
+  let delay = 40;
+
+  drum.currentTime = 0;
+  drum.loop = true;
+  drum.play();
+
+  if (finalScore >= 80) msg.innerText = "🎉 Parabéns!";
+  else if (finalScore >= 50) msg.innerText = "💪 Muito bom!";
+  else msg.innerText = "😅 Precisa melhorar";
+
+  function roll() {
+    current++;
+    value.innerText = current;
+    delay += 8;
+
+    if (current < finalScore) {
+      setTimeout(roll, delay);
+    } else {
+      drum.pause();
+    }
+  }
+
+  roll();
+}
+
+/* SOCKET / PLAYER */
+const socket = io();
+const partyId = new URLSearchParams(location.search).get("party");
 socket.emit("joinParty", partyId);
 
 let player;
@@ -202,16 +231,8 @@ let playerReady = false;
 let currentVideoId = null;
 let hasUserStarted = false;
 
-/* YOUTUBE PLAYER */
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
-    width: "100%",
-    height: "100%",
-    playerVars: {
-      controls: 1,
-      rel: 0,
-      modestbranding: 1
-    },
     events: {
       onReady: () => playerReady = true,
       onStateChange: onPlayerStateChange
@@ -220,66 +241,69 @@ function onYouTubeIframeAPIReady() {
 }
 
 function playVideo(videoId) {
-  if (!playerReady) return;
-  if (videoId === currentVideoId) return;
-
+  if (!playerReady || videoId === currentVideoId) return;
   currentVideoId = videoId;
   player.loadVideoById(videoId);
+  hasUserStarted ? player.playVideo() : player.pauseVideo();
+}
 
-  if (hasUserStarted) {
-    player.playVideo();
-  } else {
-    player.pauseVideo();
+function startScoreWatcher() {
+  scoreWatcher = setInterval(() => {
+    const d = player.getDuration();
+    const c = player.getCurrentTime();
+    if (!scoreShown && d && d - c <= 5) {
+      scoreShown = true;
+      showScore();
+    }
+  }, 500);
+}
+
+function onPlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING) {
+    resetScoreState();
+    startScoreWatcher();
+  }
+
+  if (event.data === YT.PlayerState.ENDED) {
+    setTimeout(() => {
+      document.getElementById("scoreOverlay").classList.add("hidden");
+      nextSong();
+    }, 4000);
   }
 }
 
-function onPlayerStateChange(e) {
-  if (e.data === YT.PlayerState.PLAYING) hasUserStarted = true;
-  if (e.data === YT.PlayerState.ENDED) nextSong();
-}
-
-/* BOTÃO INICIAR */
 document.getElementById("startBtn").onclick = () => {
   hasUserStarted = true;
   player.playVideo();
   document.getElementById("startOverlay").style.display = "none";
 };
 
-/* FILA */
 socket.on("queueUpdate", queue => {
-  const container = document.getElementById("queue");
-  container.innerHTML = "";
+  const q = document.getElementById("queue");
+  q.innerHTML = "";
 
-  if (queue.length > 0) {
+  if (queue.length) {
     playVideo(queue[0].videoId);
-    document.getElementById("nowTitle").innerText = queue[0].title;
-    document.getElementById("nowSinger").innerText = "🎤 " + queue[0].singer;
-  } else {
-    document.getElementById("nowTitle").innerText = "Aguardando música…";
-    document.getElementById("nowSinger").innerText = "";
+    nowTitle.innerText = queue[0].title;
+    nowSinger.innerText = "🎤 " + queue[0].singer;
   }
 
-  queue.forEach((q, i) => {
+  queue.forEach((s, i) => {
     const item = document.createElement("div");
     item.className = "queue-item";
 
-    const thumb = document.createElement("div");
-    thumb.className = "queue-thumb";
-    thumb.style.backgroundImage = q.thumbnail
-    ? `url(${q.thumbnail})`
-    : "url('https://i.imgur.com/8Km9tLL.png')";
-
+    const t = document.createElement("div");
+    t.className = "queue-thumb";
+    t.style.backgroundImage = s.thumbnail
+      ? `url(${s.thumbnail})`
+      : "url('https://i.imgur.com/8Km9tLL.png')";
 
     const info = document.createElement("div");
-    info.className = "queue-info";
-    info.innerHTML = `
-      <strong>${i + 1}. ${q.title}</strong>
-      <small>🎤 ${q.singer}</small>
-    `;
+    info.innerHTML = `<strong>${i+1}. ${s.title}</strong><br><small>${s.singer}</small>`;
 
-    item.appendChild(thumb);
+    item.appendChild(t);
     item.appendChild(info);
-    container.appendChild(item);
+    q.appendChild(item);
   });
 });
 
