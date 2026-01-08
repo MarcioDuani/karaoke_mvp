@@ -206,27 +206,29 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerStateChange(event) {
   if (event.data === YT.PlayerState.ENDED) {
-    if (!isScoring) startScoringFlow();
+    if (!isScoring && partyStarted) startScoringFlow();
   }
 }
 
 /* =========================
    VIDEO CONTROL
 ========================= */
-function playVideo(videoId, auto = false) {
+function playVideo(videoId) {
   if (!playerReady || videoId === currentVideoId) return;
 
   currentVideoId = videoId;
   hideScore();
 
-  player.loadVideoById(videoId);
-
-  setTimeout(() => {
-    if (auto || partyStarted) {
-      player.playVideo();
-    }
-  }, 300);
+  if (!partyStarted) {
+    // ❄️ apenas prepara o vídeo (NUNCA toca)
+    player.cueVideoById(videoId);
+  } else {
+    // ▶️ festa iniciada → toca normal
+    player.loadVideoById(videoId);
+    setTimeout(() => player.playVideo(), 300);
+  }
 }
+
 
 /* =========================
    SCORE FLOW
@@ -240,7 +242,7 @@ function startScoringFlow() {
       hideScore();
       isScoring = false;
       nextSong();
-    }, 3000);
+    }, 1800); // ⏱ tempo leitura (reduzido)
   });
 }
 
@@ -256,7 +258,8 @@ function showScoreAnimated(onFinish) {
 
   const finalScore = Math.floor(Math.random() * 101);
   let current = 0;
-  let delay = 40;
+  let delay = 18;      // ⏱ mais rápido
+  const accel = 4;    // ⏱ desaceleração menor
 
   drum.currentTime = 0;
   drum.loop = true;
@@ -265,7 +268,7 @@ function showScoreAnimated(onFinish) {
   function roll() {
     current++;
     value.innerText = current;
-    delay += 8;
+    delay += accel;
 
     if (current < finalScore) {
       setTimeout(roll, delay);
@@ -297,7 +300,11 @@ function hideScore() {
 document.getElementById("startBtn").onclick = () => {
   partyStarted = true;
   document.getElementById("startOverlay").style.display = "none";
-  player.playVideo(); // só o PRIMEIRO
+
+  // ▶️ TOCA O PRIMEIRO VÍDEO SE JÁ EXISTIR
+  if (currentVideoId) {
+    player.playVideo();
+  }
 };
 
 socket.on("queueUpdate", queue => {
@@ -305,7 +312,7 @@ socket.on("queueUpdate", queue => {
   q.innerHTML = "";
 
   if (queue.length) {
-    playVideo(queue[0].videoId, true);
+    playVideo(queue[0].videoId);
     nowTitle.innerText = queue[0].title;
     nowSinger.innerText = "🎤 " + queue[0].singer;
   }
