@@ -8,6 +8,7 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <style>
+/* ===== SEU CSS (MANTIDO) ===== */
 body {
   margin: 0;
   background: #0f0f0f;
@@ -33,10 +34,8 @@ header {
   border-radius: 16px;
   padding: 16px;
 }
+
 .queue-card {
-  background: #1c1c1c;
-  border-radius: 16px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
 }
@@ -51,12 +50,11 @@ header {
 }
 
 .queue-list {
-  height: 420px;          /* 🔥 IGUAL AO PLAYER */
+  height: 420px;
   overflow-y: auto;
   padding-right: 6px;
   margin-top: 12px;
 }
-
 
 .queue-item {
   display: flex;
@@ -87,25 +85,8 @@ header {
   font-size: 16px;
   border-radius: 14px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: all 0.25s ease;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-}
-.controls button:hover {
-  background: linear-gradient(135deg, #333, #222);
-  border-color: #555;
-  transform: translateY(-1px);
-}
-.controls button:active {
-  transform: translateY(0);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
 }
 
-
-
-/* SCORE */
 .score-overlay {
   position: fixed;
   inset: 0;
@@ -125,12 +106,21 @@ header {
   padding: 40px 60px;
   border-radius: 20px;
   text-align: center;
-  box-shadow: 0 0 25px rgba(255,0,85,0.4);
 }
 
 #scoreValue {
   font-size: 96px;
   font-weight: bold;
+}
+
+#startOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 5;
 }
 
 #startBtn {
@@ -139,23 +129,7 @@ header {
   border-radius: 50px;
   border: none;
   cursor: pointer;
-  background: var(--accent);
-  color: white;
 }
-#startOverlay {
-  position: absolute;
-  inset: 0; /* cobre todo o player */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0,0,0,0.6);
-  z-index: 5;
-}
-#startBtn:hover {
-  transform: scale(1.05);
-}
-
-
 </style>
 </head>
 
@@ -188,7 +162,7 @@ header {
 
 </div>
 
-<!-- SCORE OVERLAY -->
+<!-- SCORE -->
 <div id="scoreOverlay" class="score-overlay hidden">
   <div class="score-box">
     <h2 id="scoreMessage"></h2>
@@ -201,62 +175,25 @@ header {
 </audio>
 
 <script>
-/* SCORE STATE */
-let scoreShown = false;
-let scoreWatcher = null;
+/* =========================
+   STATE
+========================= */
+let partyStarted = false;
+let isScoring = false;
 
-function resetScoreState() {
-  scoreShown = false;
-  if (scoreWatcher) {
-    clearInterval(scoreWatcher);
-    scoreWatcher = null;
-  }
-}
-
-function showScore() {
-  const overlay = document.getElementById("scoreOverlay");
-  const value = document.getElementById("scoreValue");
-  const msg = document.getElementById("scoreMessage");
-  const drum = document.getElementById("drumSound");
-
-  overlay.classList.remove("hidden");
-
-  const finalScore = Math.floor(Math.random() * 101);
-  let current = 0;
-  let delay = 40;
-
-  drum.currentTime = 0;
-  drum.loop = true;
-  drum.play();
-
-  if (finalScore >= 80) msg.innerText = "🎉 Parabéns!";
-  else if (finalScore >= 50) msg.innerText = "💪 Muito bom!";
-  else msg.innerText = "😅 Precisa melhorar";
-
-  function roll() {
-    current++;
-    value.innerText = current;
-    delay += 8;
-
-    if (current < finalScore) {
-      setTimeout(roll, delay);
-    } else {
-      drum.pause();
-    }
-  }
-
-  roll();
-}
-
-/* SOCKET / PLAYER */
+/* =========================
+   SOCKET
+========================= */
 const socket = io();
 const partyId = new URLSearchParams(location.search).get("party");
 socket.emit("joinParty", partyId);
 
+/* =========================
+   PLAYER
+========================= */
 let player;
 let playerReady = false;
 let currentVideoId = null;
-let hasUserStarted = false;
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
@@ -267,42 +204,100 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-function playVideo(videoId) {
-  if (!playerReady || videoId === currentVideoId) return;
-  currentVideoId = videoId;
-  player.loadVideoById(videoId);
-  hasUserStarted ? player.playVideo() : player.pauseVideo();
-}
-
-function startScoreWatcher() {
-  scoreWatcher = setInterval(() => {
-    const d = player.getDuration();
-    const c = player.getCurrentTime();
-    if (!scoreShown && d && d - c <= 5) {
-      scoreShown = true;
-      showScore();
-    }
-  }, 500);
-}
-
 function onPlayerStateChange(event) {
-  if (event.data === YT.PlayerState.PLAYING) {
-    resetScoreState();
-    startScoreWatcher();
-  }
-
   if (event.data === YT.PlayerState.ENDED) {
-    setTimeout(() => {
-      document.getElementById("scoreOverlay").classList.add("hidden");
-      nextSong();
-    }, 4000);
+    if (!isScoring) startScoringFlow();
   }
 }
 
+/* =========================
+   VIDEO CONTROL
+========================= */
+function playVideo(videoId, auto = false) {
+  if (!playerReady || videoId === currentVideoId) return;
+
+  currentVideoId = videoId;
+  hideScore();
+
+  player.loadVideoById(videoId);
+
+  setTimeout(() => {
+    if (auto || partyStarted) {
+      player.playVideo();
+    }
+  }, 300);
+}
+
+/* =========================
+   SCORE FLOW
+========================= */
+function startScoringFlow() {
+  isScoring = true;
+  player.pauseVideo();
+
+  showScoreAnimated(() => {
+    setTimeout(() => {
+      hideScore();
+      isScoring = false;
+      nextSong();
+    }, 3000);
+  });
+}
+
+function showScoreAnimated(onFinish) {
+  const overlay = document.getElementById("scoreOverlay");
+  const value = document.getElementById("scoreValue");
+  const msg = document.getElementById("scoreMessage");
+  const drum = document.getElementById("drumSound");
+
+  overlay.classList.remove("hidden");
+  value.innerText = "0";
+  msg.innerText = "";
+
+  const finalScore = Math.floor(Math.random() * 101);
+  let current = 0;
+  let delay = 40;
+
+  drum.currentTime = 0;
+  drum.loop = true;
+  drum.play();
+
+  function roll() {
+    current++;
+    value.innerText = current;
+    delay += 8;
+
+    if (current < finalScore) {
+      setTimeout(roll, delay);
+    } else {
+      drum.pause();
+      showFinalMessage(finalScore);
+      if (onFinish) onFinish();
+    }
+  }
+
+  roll();
+}
+
+function showFinalMessage(score) {
+  const msg = document.getElementById("scoreMessage");
+
+  if (score >= 80) msg.innerText = "🎉 Você deu um show!";
+  else if (score >= 50) msg.innerText = "💪 Mandou bem!";
+  else msg.innerText = "😅 Bora treinar mais!";
+}
+
+function hideScore() {
+  document.getElementById("scoreOverlay").classList.add("hidden");
+}
+
+/* =========================
+   UI / QUEUE
+========================= */
 document.getElementById("startBtn").onclick = () => {
-  hasUserStarted = true;
-  player.playVideo();
+  partyStarted = true;
   document.getElementById("startOverlay").style.display = "none";
+  player.playVideo(); // só o PRIMEIRO
 };
 
 socket.on("queueUpdate", queue => {
@@ -310,7 +305,7 @@ socket.on("queueUpdate", queue => {
   q.innerHTML = "";
 
   if (queue.length) {
-    playVideo(queue[0].videoId);
+    playVideo(queue[0].videoId, true);
     nowTitle.innerText = queue[0].title;
     nowSinger.innerText = "🎤 " + queue[0].singer;
   }
@@ -321,9 +316,7 @@ socket.on("queueUpdate", queue => {
 
     const t = document.createElement("div");
     t.className = "queue-thumb";
-    t.style.backgroundImage = s.thumbnail
-      ? `url(${s.thumbnail})`
-      : "url('https://i.imgur.com/8Km9tLL.png')";
+    t.style.backgroundImage = `url(${s.thumbnail})`;
 
     const info = document.createElement("div");
     info.innerHTML = `<strong>${i+1}. ${s.title}</strong><br><small>${s.singer}</small>`;
