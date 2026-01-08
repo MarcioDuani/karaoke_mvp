@@ -257,30 +257,40 @@ function showScoreAnimated(onFinish) {
   msg.innerText = "";
 
   const finalScore = Math.floor(Math.random() * 101);
-  let current = 0;
-  let delay = 18;      // ⏱ mais rápido
-  const accel = 4;    // ⏱ desaceleração menor
+
+  const TOTAL_TIME = 8200; // ⏱ duração total da rolagem (ms)
+  const FRAME_TIME = 20;   // ⏱ fluidez
+  const STEPS = TOTAL_TIME / FRAME_TIME;
+
+  let step = 0;
 
   drum.currentTime = 0;
   drum.loop = true;
   drum.play();
 
-  function roll() {
-    current++;
-    value.innerText = current;
-    delay += accel;
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
 
-    if (current < finalScore) {
-      setTimeout(roll, delay);
-    } else {
+  const timer = setInterval(() => {
+    step++;
+    const progress = step / STEPS;           // 0 → 1
+    const eased = easeOutCubic(progress);    // easing
+    const current = Math.round(eased * finalScore);
+
+    value.innerText = current;
+
+    if (step >= STEPS) {
+      clearInterval(timer);
       drum.pause();
+      value.innerText = finalScore;
       showFinalMessage(finalScore);
       if (onFinish) onFinish();
     }
-  }
-
-  roll();
+  }, FRAME_TIME);
 }
+
+
 
 function showFinalMessage(score) {
   const msg = document.getElementById("scoreMessage");
